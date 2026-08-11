@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ==============================================================================
 # Discord Wayland Global Hotkeys Installer
-# Fixes Scroll Lock (Mute) & Pause/Break (Deafen) keybinds on Wayland with zero CPU overhead.
+# Fixes Discord Mute & Deafen global keybinds on Wayland across all Linux Desktops.
 # ==============================================================================
 
 set -e
@@ -9,10 +9,52 @@ set -e
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
+CYAN='\033[0;36m'
 RED='\033[0;31m'
 NC='\033[0m' # No Color
 
-echo -e "${BLUE}=== Discord Wayland Hotkey Fix Installer ===${NC}\n"
+echo -e "${BLUE}====================================================${NC}"
+echo -e "${BLUE}    Discord Wayland Global Hotkeys Installer 🎙️🔔    ${NC}"
+echo -e "${BLUE}====================================================${NC}\n"
+
+# Parse CLI flags if provided (--mute KEY --deafen KEY)
+MUTE_KEY=""
+DEAFEN_KEY=""
+
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --mute)
+      MUTE_KEY="$2"
+      shift 2
+      ;;
+    --deafen)
+      DEAFEN_KEY="$2"
+      shift 2
+      ;;
+    *)
+      shift
+      ;;
+  esac
+done
+
+# Interactive Key Selection if not specified via flags
+if [ -z "$MUTE_KEY" ]; then
+    echo -e "${CYAN}Choose your custom hotkey for TOGGLE MUTE:${NC}"
+    echo -e "Examples: ${YELLOW}Scroll_Lock${NC}, ${YELLOW}F13${NC}, ${YELLOW}F14${NC}, ${YELLOW}XF86AudioMute${NC}, ${YELLOW}<Primary><Shift>m${NC}"
+    read -rp "Enter Mute Hotkey [Default: Scroll_Lock]: " input_mute
+    MUTE_KEY="${input_mute:-Scroll_Lock}"
+fi
+
+if [ -z "$DEAFEN_KEY" ]; then
+    echo -e "\n${CYAN}Choose your custom hotkey for TOGGLE DEAFEN:${NC}"
+    echo -e "Examples: ${YELLOW}Pause${NC}, ${YELLOW}F14${NC}, ${YELLOW}F15${NC}, ${YELLOW}XF86AudioDeafen${NC}, ${YELLOW}<Primary><Shift>d${NC}"
+    read -rp "Enter Deafen Hotkey [Default: Pause]: " input_deafen
+    DEAFEN_KEY="${input_deafen:-Pause}"
+fi
+
+echo -e "\n${GREEN}Selected Hotkeys:${NC}"
+echo -e "  🎤 Mute Hotkey:   ${YELLOW}$MUTE_KEY${NC}"
+echo -e "  🎧 Deafen Hotkey: ${YELLOW}$DEAFEN_KEY${NC}\n"
 
 # 1. Locate Discord desktop core module
 DISCORD_CORE_DIR=""
@@ -25,7 +67,7 @@ done
 
 if [ -z "$DISCORD_CORE_DIR" ]; then
     echo -e "${RED}Error: Could not find Discord desktop core installation in ~/.config/discord/${NC}"
-    echo "Please ensure Discord is installed and has been run at least once."
+    echo "Please ensure Discord is installed and has been launched at least once."
     exit 1
 fi
 
@@ -39,7 +81,7 @@ if [ ! -f "$INDEX_BAK" ]; then
     cp "$INDEX_JS" "$INDEX_BAK"
     echo -e "${GREEN}[2/4] Created backup at:${NC} $INDEX_BAK"
 else
-    echo -e "${YELLOW}[2/4] Backup already exists at:${NC} $INDEX_BAK"
+    echo -e "${YELLOW}[2/4] Backup file already exists at:${NC} $INDEX_BAK"
 fi
 
 # Inject background trigger server into index.js
@@ -109,7 +151,7 @@ app.whenReady().then(() => {
 module.exports = require('./core.asar');
 EOF
 
-echo -e "${GREEN}[2/4] Successfully patched Discord index.js${NC}"
+echo -e "${GREEN}[2/4] Patched Discord core module with background event server.${NC}"
 
 # 3. Create local toggle scripts
 mkdir -p "$HOME/.local/bin"
@@ -126,7 +168,7 @@ EOF
 
 chmod +x "$HOME/.local/bin/discord-toggle-mute" "$HOME/.local/bin/discord-toggle-deafen"
 
-echo -e "${GREEN}[3/4] Created toggle scripts in ~/.local/bin/${NC}"
+echo -e "${GREEN}[3/4] Created trigger scripts in ~/.local/bin/${NC}"
 
 # 4. Configure GNOME Shortcuts if running under GNOME
 if [ "$XDG_CURRENT_DESKTOP" = "GNOME" ] || [ -n "$DBUS_SESSION_BUS_ADDRESS" ]; then
@@ -138,18 +180,22 @@ if [ "$XDG_CURRENT_DESKTOP" = "GNOME" ] || [ -n "$DBUS_SESSION_BUS_ADDRESS" ]; t
 
     gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom-discord-mute/ name 'Discord Toggle Mute'
     gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom-discord-mute/ command "$HOME/.local/bin/discord-toggle-mute"
-    gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom-discord-mute/ binding 'Scroll_Lock'
+    gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom-discord-mute/ binding "$MUTE_KEY"
 
     gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom-discord-deafen/ name 'Discord Toggle Deafen'
     gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom-discord-deafen/ command "$HOME/.local/bin/discord-toggle-deafen"
-    gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom-discord-deafen/ binding 'Pause'
+    gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom-discord-deafen/ binding "$DEAFEN_KEY"
 
-    echo -e "${GREEN}GNOME Shortcuts set: Scroll Lock -> Mute, Pause -> Deafen${NC}"
+    echo -e "${GREEN}GNOME Shortcuts configured successfully!${NC}"
+    echo -e "  🎤 Mute Key:   ${YELLOW}$MUTE_KEY${NC}"
+    echo -e "  🎧 Deafen Key: ${YELLOW}$DEAFEN_KEY${NC}"
 else
-    echo -e "${YELLOW}[4/4] Non-GNOME desktop detected. Please map your custom shortcuts manually:${NC}"
-    echo "  Mute Command:   $HOME/.local/bin/discord-toggle-mute"
-    echo "  Deafen Command: $HOME/.local/bin/discord-toggle-deafen"
+    echo -e "${YELLOW}[4/4] Non-GNOME Desktop detected. Bind your shortcuts in your DE settings:${NC}"
+    echo -e "  Toggle Mute command:   ${GREEN}$HOME/.local/bin/discord-toggle-mute${NC}"
+    echo -e "  Toggle Deafen command: ${GREEN}$HOME/.local/bin/discord-toggle-deafen${NC}"
 fi
 
-echo -e "\n${BLUE}=== Installation Complete! ===${NC}"
-echo -e "Please restart Discord to apply the changes."
+echo -e "\n${BLUE}====================================================${NC}"
+echo -e "${GREEN}  SUCCESS: Discord Wayland Hotkeys Configured! 🎉  ${NC}"
+echo -e "${BLUE}====================================================${NC}"
+echo -e "Please ${YELLOW}restart Discord${NC} for the changes to take effect."
