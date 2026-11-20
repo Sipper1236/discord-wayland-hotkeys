@@ -140,3 +140,5 @@ chmod +x uninstall.sh
 ## 📄 License
 
 MIT License. Free for all open-source distribution and use.
+
+For native Vesktop, see the [Vesktop adapter](vesktop/README.md).
